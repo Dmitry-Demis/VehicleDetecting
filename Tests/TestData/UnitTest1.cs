@@ -261,12 +261,22 @@ namespace TestData
                     var area = Cv2.ContourArea(contours[j]);
                     if (r.Height/(r.Width * 1.0 )> 1.1 && area > 1200)
                     {
-                        Cv2.Rectangle(mat,r, Scalar.Red, 2);
+                        Mat tmp = mat[new Rect(r.X - 10, r.Y - 10, r.Width + 20, r.Height + 20)]; 
+                        tmp.SaveImage(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{i}_{j}.png");
+                        Cv2.Rectangle(mat, new Rect(r.X - 10, r.Y - 10, r.Width + 20, r.Height + 20), Scalar.Red, 2);
+                        
                     }
+                    
                 } // Cv2.DrawContours(mat, contours, -1, Scalar.Red, 2);
-                Cv2.ImShow("name", mat);
+               Cv2.ImShow("s", mat);
                 Cv2.WaitKey();
             }
+        }
+
+        [TestMethod]
+        public void CreateDirectories()
+        {
+
         }
     }
 }
