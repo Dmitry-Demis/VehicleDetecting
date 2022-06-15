@@ -11,6 +11,8 @@ using TesseractSharp;
 using Image = AForge.Imaging.Image;
 using Point = OpenCvSharp.Point;
 using Size = OpenCvSharp.Size;
+using tessnet2;
+using Tesseract = tessnet2.Tesseract;
 
 namespace TestData
 {
@@ -58,7 +60,7 @@ namespace TestData
             for (int i = 0; i < files.Length; i++)
             {
                 var gray = new Mat(files[i], ImreadModes.Grayscale);
-                var coeff = 10;
+                var coeff = 7;
                 Cv2.Resize(gray, gray, new Size(), fx: coeff, fy: coeff, InterpolationFlags.Cubic);
                 Mat thresh = new();
                 Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Otsu | ThresholdTypes.BinaryInv);
@@ -67,7 +69,8 @@ namespace TestData
                 Mat dilation = new();
                 Cv2.Dilate(thresh, dilation, rect_kern);
               Cv2.FindContours(dilation, out var contours, out var hierarchy, RetrievalModes.Tree,
-                 ContourApproximationModes.ApproxSimple);
+                ContourApproximationModes.ApproxSimple);
+              Cv2.ImShow($"{i}{nameof(thresh)}", dilation);
                 Array.Sort(contours, ((points, points1) =>
                 {
                     var l = Cv2.BoundingRect(points);
@@ -76,7 +79,7 @@ namespace TestData
                 }));
                 List<Point[]> mats = new ();
                 //Cv2.DrawContours(gray, new List<Point[]> { contours[0] }, -1, Scalar.Black);
-               // Cv2.ImShow($"{i}{nameof(thresh)}", gray);
+                Cv2.ImShow($"{i}{nameof(thresh)}", dilation);
                 //Cv2.WaitKey();
                 for (var index1 = 0; index1 < contours.Length; index1++)
                 {
@@ -86,58 +89,92 @@ namespace TestData
                     {
                         continue;
                     }
-
-                    double ratio = (1.0 * rect.Height) / rect.Width;
-                    if (ratio < 1.3)
+                    var ratio = (1.0 * rect.Height) / rect.Width;
+                    if (ratio < 0.9)
                     {
                         continue;
                     }
-
-                    if ((1.0 * thresh.Width) / rect.Width > 12)
-                    {
-                        continue;
-                    }
-
                     var area = Cv2.ContourArea(contour);
-                    if (area < 100)
+                    if (area < 1300)
+                    {
+                        continue;
+                    }
+
+                    if (Cv2.BoundingRect(contours[index1]).X + Cv2.BoundingRect(contours[index1]).Width < Cv2.BoundingRect(contours[index1-1]).X + Cv2.BoundingRect(contours[index1-1]).Width)
                     {
                         continue;
                     }
                     mats.Add(contour);
                 }
+                string licensePlate = String.Empty; 
+                var configVars = new KeyValuePair<string, string>("tessedit_char_whitelist",
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ-1234567890");
+                var ocr = new Tesseract();
+                ocr.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZ-1234567890¿¡¬√ƒ≈®∆«»… ÀÃÕŒœ–—“”‘’÷◊ÿŸ⁄€‹›ﬁﬂ");
+                ocr.Init(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\rus.traineddata", "rus", false);
+                for (int j = 0; j < mats.Count; j++)
+                {
+                    var rect = Cv2.BoundingRect(mats[j]);
+                    Cv2.Rectangle(gray, rect, Scalar.Black);
+                    var roi = thresh[rect.Y, rect.Y + rect.Height, rect.X, rect.X + rect.Width];
+                    Cv2.BitwiseNot(roi, roi);
+                    Cv2.MedianBlur(roi, roi, 5);
+                    Cv2.Resize(roi, roi, new OpenCvSharp.Size(50, 50));
+                    Cv2.ImShow(nameof(roi), roi);
+                 //  Cv2.WaitKey();
+                    var bmp = roi.ToBitmap();
 
-                Cv2.DrawContours(gray, mats, -1, Scalar.Black);
+
+                    List<tessnet2.Word> result = ocr.DoOCR(bmp, Rectangle.Empty);
+                    //using (var stream = TesseractSharp.Tesseract.ImageToTxt(bmp,
+                    //           languages: new[] { Language.Russian },
+                    //           oem: OcrEngineMode.OemLstmOnly, psm: PageSegMode.PsmSingleLine,
+                    //           configVars: new[] { configVars }))
+                    //{
+                    //    using (var sr = new StreamReader(stream))
+                    //    {
+                    //        var str = sr.ReadLine();
+                    //        if (licensePlate.Length is > 0 and < 5) 
+                    //        {
+                    //            if (str == "O")
+                    //            {
+                    //                str = "0";
+                    //            }
+                    //        }
+                    //        else if (licensePlate.Length == 6)
+                    //        {
+                    //            if (str == "J")
+                    //            {
+                    //                str = "7";
+                    //            }
+                    //        }
+
+                    //        if (str == "Y")
+                    //        {
+                    //            str = "”";
+                    //        }
+
+                    //        licensePlate += str;
+                    //    }
+                    //}
+                }
                 Cv2.ImShow($"{i}{nameof(thresh)}", gray);
-               // Cv2.WaitKey();
-             
+                Cv2.WaitKey();
+
 
                 //    Cv2.Rectangle(gray, rect, Scalar.Red, 2);
-                //    var roi = thresh[rect.Y, rect.Y + rect.Height, rect.X, rect.X + rect.Width];
-                //    Cv2.BitwiseNot(roi, roi);
-                //    Cv2.MedianBlur(roi, roi, 5);
-                //    Cv2.Resize(roi, roi, new OpenCvSharp.Size(50, 50));
+             
+                //   
                 //    mats.Add(roi);
-                //    string licensePlate = String.Empty;
-                //    var configVars = new KeyValuePair<string, string>("tessedit_char_whitelist",
-                //        "ABCDEFGHIJKLMNOPQRSTUVWXYZ-1234567890");
+                //    
                 //    for (int index = 0; index < mats.Count; index++)
                 //    {
-                //        var bmp = new Bitmap(mats[index].ToMemoryStream());
-                //        using (var stream = TesseractSharp.Tesseract.ImageToTxt(bmp,
-                //                   languages: new[] { Language.English, Language.Russian },
-                //                   oem: OcrEngineMode.OemLstmOnly, psm: PageSegMode.PsmSingleLine,
-                //                   configVars: new[] { configVars }))
-                //        {
-                //            using (var sr = new StreamReader(stream))
-                //            {
-                //                licensePlate += sr.ReadLine();
-                //            }
-                //        }
+                //        
                 //    }
                 //}
                 //Cv2.DrawContours(gray, contours, -1, Scalar.Yellow);
-                
-                
+
+
                 //Cv2.ImShow($"{i}{nameof(thresh)}", gray);
             }
             Cv2.WaitKey();
@@ -177,6 +214,7 @@ namespace TestData
             //    Cv2.ImShow(nameof(image), image);
                 image = image[new Rect(rects[0].X, rects[0].Y, rects[0].Width, rects[0].Height)];
               //  image = image.Resize(new Size(102, 34));
+              image = image.Resize(new Size(85, 30));
                 image.SaveImage(Path.Combine(outputPath, Path.GetFileName(file)));
                
               //  Cv2.WaitKey();
@@ -204,6 +242,31 @@ namespace TestData
                 bitmap.Save(t);
             }
         }
-        
+
+        [TestMethod]
+        public void PrepareSymbols()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\";
+            var files = Directory.GetFiles(path, "*.png") ?? throw new ArgumentNullException("Directory.GetFiles(path, \"*.png\")");
+            for (int i = 1; i < files.Length; i++)
+            {
+                Mat mat = new Mat(files[i]);
+                Mat gray = mat.CvtColor(ColorConversionCodes.BGR2GRAY);
+                Mat thresh = new();
+                Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Otsu);
+                Cv2.FindContours(thresh, out var contours, out var hierarchy, RetrievalModes.Tree, ContourApproximationModes.ApproxSimple);
+                for (int j = 0; j < contours.Length; j++)
+                {
+                    var r = Cv2.BoundingRect(contours[j]);
+                    var area = Cv2.ContourArea(contours[j]);
+                    if (r.Height/(r.Width * 1.0 )> 1.1 && area > 1200)
+                    {
+                        Cv2.Rectangle(mat,r, Scalar.Red, 2);
+                    }
+                } // Cv2.DrawContours(mat, contours, -1, Scalar.Red, 2);
+                Cv2.ImShow("name", mat);
+                Cv2.WaitKey();
+            }
+        }
     }
 }

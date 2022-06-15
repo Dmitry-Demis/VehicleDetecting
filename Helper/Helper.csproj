@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="AForge.Imaging" Version="2.2.5" />
     <PackageReference Include="Keras.NET" Version="3.7.5" />
+    <PackageReference Include="NuGet.Tessnet2" Version="1.1.1" />
     <PackageReference Include="NumSharp.Bitmap" Version="0.30.0" />
     <PackageReference Include="OpenCvSharp4" Version="4.6.0.20220608" />
     <PackageReference Include="OpenCvSharp4.Extensions" Version="4.6.0.20220608" />
