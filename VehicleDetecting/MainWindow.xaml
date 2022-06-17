@@ -53,10 +53,11 @@
                 Margin="5"
                 x:Name="modelsPathCheckBox" IsEnabled="{Binding LoadedImage}"/>
                 <TextBlock
+                    FontSize="25"
                 Margin="5"
-                Text="Здесь будет результат"
+                Text="Н700УУ37"
                 x:Name="resultTxtBlock"
-                Foreground="LightGray"
+                Foreground="Blue"
                 />
                 <Button Content="TRAIN" Click="Button_Click"/>
             </StackPanel>

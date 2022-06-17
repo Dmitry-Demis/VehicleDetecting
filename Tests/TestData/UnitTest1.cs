@@ -276,7 +276,30 @@ namespace TestData
         [TestMethod]
         public void CreateDirectories()
         {
+            var array = "0,1,2,3,4,5,6,7,8,9,A,B,E,K,M,H,O,P,C,T,Y,X,D";
+            var split = array.Split(',');
+            for (int i = 0; i < split.Length; i++)
+            {
+                Directory.CreateDirectory(
+                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{split[i]}");
+            }
+        }
 
+        [TestMethod]
+        public void RenameEverything()
+        {
+            var array = "0,1,2,3,4,5,6,7,8,9,A,B,E,K,M,H,O,P,C,T,Y,X,D";
+            var split = array.Split(',');
+            for (int i = 0; i < split.Length; i++)
+            {
+                var files = Directory.GetFiles(
+                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{split[i]}");
+                for (int j = 0; j < files.Length; j++)
+                {
+                    File.Move(files[j], $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{split[i]}_image_{j}");
+                }
+               
+            }
         }
     }
 }
