@@ -344,7 +344,10 @@ namespace TestData
                 var r = Cv2.BoundingRect(ct[j]);
                 Mat tmp = image[new Rect(r.X, r.Y, r.Width, r.Height)];
                 tmp = tmp.Resize(new Size(72, 102));
-                tmp.SaveImage(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\{j}.png");
+                Cv2.BitwiseNot(tmp, tmp);
+                var res = tmp.ToBitmap();
+                //tmp = tmp.CvtColor(ColorConversionCodes.BGR2GRAY);
+                res.Save(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\{j}.png", ImageFormat.Png);
                
             }
             // Cv2.DrawContours(img, contours, -1, Scalar.Red);
