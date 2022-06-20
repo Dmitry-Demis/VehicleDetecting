@@ -167,7 +167,7 @@ namespace Helper
                 test = Numpy.np.expand_dims(test, 0);
                 xP.Add(test);
             }
-            var array = "0,1,2,3,4,5,6,7,8,9,A,B,C,E,H,K,M,O,P,T,X,Y";
+            var array = "0,1,2,3,4,5,6,7,8,9,A,B,C,E,H,K,M,O,P,T,X,У";
             var split = array.Split(',');
             Dictionary<string, string> dic = new Dictionary<string, string>(22);
             for (int i = 0; i < 22; i++)
