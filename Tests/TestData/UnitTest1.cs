@@ -13,6 +13,7 @@ using Point = OpenCvSharp.Point;
 using Size = OpenCvSharp.Size;
 using tessnet2;
 using Tesseract = tessnet2.Tesseract;
+using System.Linq;
 
 namespace TestData
 {
@@ -248,9 +249,10 @@ namespace TestData
         {
             const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\";
             var files = Directory.GetFiles(path, "*.png") ?? throw new ArgumentNullException("Directory.GetFiles(path, \"*.png\")");
-            for (int i = 1; i < files.Length; i++)
+            var count = 0;
+            foreach (var file in files)
             {
-                Mat mat = new Mat(files[i]);
+                Mat mat = new Mat(file);
                 Mat gray = mat.CvtColor(ColorConversionCodes.BGR2GRAY);
                 Mat thresh = new();
                 Cv2.Threshold(gray, thresh, 0, 255, ThresholdTypes.Otsu);
@@ -261,22 +263,133 @@ namespace TestData
                     var area = Cv2.ContourArea(contours[j]);
                     if (r.Height/(r.Width * 1.0 )> 1.1 && area > 1200)
                     {
-                        Mat tmp = mat[new Rect(r.X - 10, r.Y - 10, r.Width + 20, r.Height + 20)]; 
-                        tmp.SaveImage(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{i}_{j}.png");
+                        Mat tmp = gray[new Rect(r.X - 10, r.Y - 10, r.Width + 20, r.Height + 20)];
+                        tmp = tmp.Resize(new Size(72, 102));
+                        tmp.SaveImage(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{count++}.png");
                         Cv2.Rectangle(mat, new Rect(r.X - 10, r.Y - 10, r.Width + 20, r.Height + 20), Scalar.Red, 2);
                         
                     }
                     
                 } // Cv2.DrawContours(mat, contours, -1, Scalar.Red, 2);
-               Cv2.ImShow("s", mat);
-                Cv2.WaitKey();
+            //    Cv2.ImShow("s", mat);
+           //     Cv2.WaitKey();
+            }
+        }
+
+        [TestMethod]
+        public void FindContours()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\2.png";
+            const string path2 = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\Без имени-4.png";
+            int coeff = 5;
+            Mat img = new Mat(path2);
+            img = img.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
+            Mat image = new Mat(path, ImreadModes.Grayscale);
+            image = image.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
+            image = image.GaussianBlur(new Size(5, 5), 0);
+            image = image.Threshold(0, 255, ThresholdTypes.Otsu);
+            var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
+            Mat dilation = new();
+            Cv2.Dilate(image, dilation, rect_kern);
+            Cv2.FindContours(image, out var contours, out var hierarchy, RetrievalModes.Tree,
+                ContourApproximationModes.ApproxSimple);
+            Array.Sort(contours, (points, points1) =>
+            {
+                var left = Cv2.BoundingRect(points);
+                var right = Cv2.BoundingRect(points1);
+                return left.X < right.X? -1 : 1;
+            });
+            List<Point[]> ct = new ();
+            for (int i = 0; i < contours.Length; i++)
+            {
+                var rect = Cv2.BoundingRect(contours[i]);
+                 var rect2 = (i != 0 && ct.Count!=0) ? Cv2.BoundingRect(ct[^1]) : Rect.Empty;
+                if (!(Cv2.ContourArea(contours[i]) > 100))
+                {
+                    continue;
+                }
+
+                if (rect.Width is > 40 or <= 15)
+                {
+                    continue;
+                }
+                if (rect.Height <= 20)
+                {
+                    continue;
+                }
+                if (i != 0 && rect.X + rect.Width < rect2.X + rect2.Width && rect.Y + rect.Height < rect2.Y + rect2.Height)
+                {
+                    continue;
+                }
+                if (rect.Height * 1.0 / rect.Width is <= 0.8 or >= 3.0)
+                {
+                    continue;
+                }
+                Cv2.Rectangle(img, Cv2.BoundingRect(contours[i]), Scalar.Red);
+                ct.Add(contours[i]);
+            }
+
+            List<double> ar = new List<double>();
+            List<(int, int, int, int, double, double)> frac = new();
+            for (int i = 0; i < contours.Length; i++)
+            {
+              
+                var rect = Cv2.BoundingRect(contours[i]);
+                frac.Add((rect.X, rect.Y, rect.Width, rect.Height, rect.Height * 1.0 / rect.Width, Cv2.ContourArea(contours[i])));
+
+            }
+
+            for (int j = 0; j < ct.Count; j++)
+            {
+                var r = Cv2.BoundingRect(ct[j]);
+                Mat tmp = image[new Rect(r.X, r.Y, r.Width, r.Height)];
+                tmp = tmp.Resize(new Size(72, 102));
+                tmp.SaveImage(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\{j}.png");
+               
+            }
+            // Cv2.DrawContours(img, contours, -1, Scalar.Red);
+            Cv2.ImShow(nameof(img), img);
+            Cv2.WaitKey();
+            int a = 5;
+            a = 7;
+            Console.WriteLine();
+        }
+        [TestMethod]
+        public void Filters()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\Без имени-4.png";
+
+            {
+                Bitmap? bitmap = new Bitmap(path);
+                bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
+                OtsuThreshold otsu = new OtsuThreshold();
+                Sharpen sharpen = new Sharpen();
+
+
+                // var kernel1 = new[,] { { 0, -1, 0 }, { -1, 4, -1 }, { 0, -1, 0 } };
+                var kernel1 = new[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
+                var kernel2 = new[,] { { 0, 1, 0 }, { 1, -5, 1 }, { 0, 1, 0 } };
+                //  var kernel3 = new[,] { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
+                var kernel3 = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
+                var kernel4 = new[,] { { 1, 1, 1 }, { 1, -9, 1 }, { 1, 1, 1 } };
+                List<int[,]> list = new List<int[,]>() { kernel1, kernel2, kernel3, kernel4 };
+                for (int i = 0; i < list.Count; i++)
+                {
+                    sharpen.Kernel = list[i];
+                    var c = sharpen.Apply(bitmap);
+
+                    c.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"{i}.png");
+                }
+                var k = otsu.Apply(bitmap);
+                k.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"otsu.png");
+
             }
         }
 
         [TestMethod]
         public void CreateDirectories()
         {
-            var array = "0,1,2,3,4,5,6,7,8,9,A,B,E,K,M,H,O,P,C,T,Y,X,D";
+            var array = "0,1,2,3,4,5,6,7,8,9,A,B,E,K,M,H,O,P,C,T,Y,X";
             var split = array.Split(',');
             for (int i = 0; i < split.Length; i++)
             {
@@ -288,18 +401,38 @@ namespace TestData
         [TestMethod]
         public void RenameEverything()
         {
-            var array = "0,1,2,3,4,5,6,7,8,9,A,B,E,K,M,H,O,P,C,T,Y,X,D";
+            var array = "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21";
             var split = array.Split(',');
-            for (int i = 0; i < split.Length; i++)
+            //for (int i = 0; i < split.Length; i++)
+            Parallel.For(0, split.Length, i =>
             {
                 var files = Directory.GetFiles(
-                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{split[i]}");
+                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Train\{split[i]}");
                 for (int j = 0; j < files.Length; j++)
                 {
-                    File.Move(files[j], $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\{split[i]}_image_{j}");
+                    Bitmap? bitmap = null;
+                    using (var fs = File.Open(files[j], FileMode.Open)) bitmap = new Bitmap(fs);
+                    if (File.Exists(files[j])) File.Delete(files[j]);
+                  //  bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
+                    bitmap.Save(
+                        $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Train\{split[i]}\{split[i]}_{j}_image.png",
+                        ImageFormat.Png);
                 }
-               
-            }
+
+            });
+        }
+
+        [TestMethod]
+        public void TrainSymbols()
+        {
+            var trainDir = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Train\";
+            var testDir = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Test\";
+            //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
+            //var valDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Val\val\";
+            //CNN_ForCarDetecting((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary");
+            Numbers numbers = new Numbers();
+            numbers.Train((72,102,3), trainDir, testDir, null, 60, 1, 2, 0, 2,
+                @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
         }
     }
 }

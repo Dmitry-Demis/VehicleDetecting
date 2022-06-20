@@ -17,8 +17,12 @@ namespace Helper
 {
     public class VehicleAvailability
     {
-        private BaseModel? Model { get; set; }
+        private BaseModel? Model { get; }
 
+        public VehicleAvailability()
+        {
+            
+        }
         public VehicleAvailability(string? modelPath) => Model = BaseModel.LoadModel(modelPath);
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Проверка совместимости платформы", Justification = "<Ожидание>")]
@@ -79,5 +83,52 @@ namespace Helper
             Console.WriteLine($"Точность на тестовых данных равна: {acc:0.00}%");
             model.Save(outPath + $@"\carEmpty_{acc:0.00}.h5");
         }
+    }
+    public class Numbers
+    {
+        private BaseModel? Model { get; }
+
+        public Numbers()
+        {
+            
+        }
+        public Numbers(string? modelPath) => Model = BaseModel.LoadModel(modelPath);
+        public void Train((int width, int height, int channels) image, string trainPath, string testPath, string valPath, int epoch, int batchSize,
+           int trainSamples, int valSamples, int testSamples, string outPath, int numClasses, string loss = "categorical_crossentropy", string classMode = "categorical")
+        {
+            // var trainDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Train\train\";
+            //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
+            //var valDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Val\val\";
+            //CNN_ForCarDetecting((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary");
+           
+            var inputShape = new Keras.Shape(image.width, image.height, image.channels);
+            var model = new Sequential();
+            model.Add(new Conv2D(32, kernel_size: (3, 3).ToTuple(),
+                activation: "relu",
+                input_shape: inputShape));
+            model.Add(new Conv2D(64, (3, 3).ToTuple(), activation: "relu"));
+            model.Add(new MaxPooling2D(pool_size: (2, 2).ToTuple()));
+            model.Add(new Dropout(0.25));
+            model.Add(new Flatten());
+            model.Add(new Dense(128, activation: "relu"));
+            model.Add(new Dropout(0.5));
+            model.Add(new Dense(numClasses, activation: "softmax"));
+            model.Compile(loss: "categorical_crossentropy",
+                optimizer: new Adam(), metrics: new[] { "accuracy" });
+            var dataGenerator = new ImageDataGenerator(rescale: (float?)(1 / 255.0));
+            var trainGenerator = dataGenerator.FlowFromDirectory(trainPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
+           var valGenerator = dataGenerator.FlowFromDirectory(valPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
+            var testGenerator = dataGenerator.FlowFromDirectory(testPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
+            model.FitGenerator(trainGenerator, steps_per_epoch: trainSamples / batchSize, epochs: epoch);
+            var scores = model.EvaluateGenerator(testGenerator, testSamples / batchSize);
+            var acc = scores[1] * 100;
+            Console.WriteLine($"Точность на тестовых данных равна: {acc:0.00}%");
+            model.Save(outPath + $@"\numbs_{acc:0.00}.h5");
+        }
+
+    }
+    public class DataSetPreparing
+    {
+
     }
 }
