@@ -20,6 +20,7 @@ using Microsoft.Win32;
 using Brushes = System.Windows.Media.Brushes;
 using Image = System.Drawing.Image;
 using Path = System.IO.Path;
+using Rectangle = System.Drawing.Rectangle;
 
 namespace VehicleDetecting
 {
@@ -79,12 +80,13 @@ namespace VehicleDetecting
             }
             resultTxtBlock.Foreground = Brushes.DeepSkyBlue;
             resultTxtBlock.Text = "Ожидайте...";
-            var result = _model.RecognizeVehicle(_image);
-            if (!result)
+          //  var result = _model.RecognizeVehicle(_image);
+           // if (!result)
             {
                 resultTxtBlock.Foreground = Brushes.Red;
                 resultTxtBlock.Text = "ТС отсутствует";
             }
+            //new Rectangle(400, 240, 440, 100)
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

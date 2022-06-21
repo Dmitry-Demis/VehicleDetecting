@@ -16,6 +16,7 @@ using Python.Runtime;
 
 namespace Helper
 {
+
     internal class Program
     {
         static void Main(string[] args)
@@ -206,9 +207,9 @@ namespace Helper
             //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
             var valDir = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Valid\";
             //CNN_ForCarDetecting((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary");
-            Numbers numbers = new Numbers();
-            numbers.Train((72, 102, 1), trainDir, testDir, valDir, 1, 1, 44, 44, 44,
-                @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
+            //Numbers numbers = new Numbers();
+           // numbers.Train((72, 102, 1), trainDir, testDir, valDir, 1, 1, 44, 44, 44,
+               // @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
         }
     }
 }

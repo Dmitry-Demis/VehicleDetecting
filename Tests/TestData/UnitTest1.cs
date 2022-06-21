@@ -25,12 +25,13 @@ namespace TestData
         {
             const string path = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Train\";
             var files = Directory.GetFiles(path, "*.png") ?? throw new ArgumentNullException("Directory.GetFiles(path, \"*.png\")");
-            VehicleAvailability vehicle = new($@"..\..\..\..\..\Helper\Models\carEmpty.h5");
+          //  VehicleAvailability vehicle = new();
+           // vehicle.LoadModel($@"..\..\..\..\..\Helper\Models\carEmpty.h5");
             foreach (var file in files)
             {
-                var @class = int.Parse(Path.GetFileName(file)[0].ToString());
-                var result = vehicle.RecognizeVehicle(new Bitmap(file));
-                Assert.AreEqual(result, @class == 1);
+          //      var @class = int.Parse(Path.GetFileName(file)[0].ToString());
+          //      var result = vehicle.RecognizeVehicle(new Bitmap(file));
+          //      Assert.AreEqual(result, @class == 1);
             }
         }
 
@@ -221,6 +222,64 @@ namespace TestData
               //  Cv2.WaitKey();
             }
         }
+
+        public Bitmap FindLicensePlate(Bitmap image, string modelPath)
+        {
+            Rect[]? rects = null;
+            var classifier = new CascadeClassifier(modelPath);
+            var min = -14.0;
+            var max = Math.Abs(min);
+            var rotation = new RotateBicubic(min) { KeepSize = true };
+            Mat to = new();
+            while (min < max)
+            {
+                using (var result = rotation.Apply(new Bitmap(image)) ?? throw new ArgumentNullException())
+                    to = result.ToMat();
+                rects = classifier.DetectMultiScale(to);
+                if (rects.Length == 0)
+                    rotation.Angle = min += 0.2;
+                else break;
+            }
+            if (rects != null) to = to[new Rect(rects[0].X, rects[0].Y, rects[0].Width, rects[0].Height)];
+            to = to.Resize(new Size(85, 30));
+            return to.ToBitmap();
+        }
+
+        public Bitmap HoughTransformation(Bitmap image)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            var checker = new DocumentSkewChecker();
+            if (image.PixelFormat != PixelFormat.Format8bppIndexed)
+                image = Grayscale.CommonAlgorithms.BT709.Apply(image);
+            var angle = checker.GetSkewAngle(image);
+            if (!(Math.Abs(Math.Abs(angle) - 90) < 0.1))
+            {
+                var rotation = new RotateBicubic(-angle) { KeepSize = true };
+                image = rotation.Apply(image);
+            }
+            return image;
+        }
+
+        public Bitmap LaplacianFilter(Bitmap image, int[,] filter)
+        {
+            if (image == null) throw new ArgumentNullException(nameof(image));
+            if (filter == null) throw new ArgumentNullException(nameof(filter));
+            if (image.PixelFormat != PixelFormat.Format8bppIndexed)
+                image = Grayscale.CommonAlgorithms.BT709.Apply(image);
+            var convolution = new Convolution(filter);
+            image = convolution.Apply(image);
+            return image;
+        }
+
+        [TestMethod]
+        public void Test()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\Без имени-4.png";
+            var image = new Bitmap(path);
+            var filter = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
+            image = LaplacianFilter(image, filter);
+            image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\n.png");
+        }
         [TestMethod]
         public void ResaveNumberPlate()
         {
@@ -276,23 +335,35 @@ namespace TestData
             }
         }
 
+        public List<Mat> FindContoursForDetecting(Bitmap bitmap, int resizeCoeff)
+        {
+            var image = bitmap.ToMat();
+            image = image.Resize(new Size(), resizeCoeff, resizeCoeff, InterpolationFlags.Cubic);
+            return null;
+        }
         [TestMethod]
         public void FindContours()
         {
-            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\2.png";
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\0.png";
             const string path2 = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\Без имени-4.png";
             int coeff = 5;
             Mat img = new Mat(path2);
-            img = img.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
+            img = img.Resize(new Size(), coeff, coeff, InterpolationFlags.Nearest);
             Mat image = new Mat(path, ImreadModes.Grayscale);
             image = image.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
             image = image.GaussianBlur(new Size(5, 5), 0);
             image = image.Threshold(0, 255, ThresholdTypes.Otsu);
-            var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(5, 5));
+           
+            var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
             Mat dilation = new();
             Cv2.Dilate(image, dilation, rect_kern);
+            Cv2.ImShow("i", dilation);
+            Cv2.WaitKey();
             Cv2.FindContours(image, out var contours, out var hierarchy, RetrievalModes.Tree,
                 ContourApproximationModes.ApproxSimple);
+          //  Cv2.DrawContours(img, contours, -1, Scalar.Red);
+            Cv2.ImShow("i", img);
+            Cv2.WaitKey();
             Array.Sort(contours, (points, points1) =>
             {
                 var left = Cv2.BoundingRect(points);
@@ -309,7 +380,7 @@ namespace TestData
                     continue;
                 }
 
-                if (rect.Width is > 40 or <= 15)
+                if (rect.Width is > 40 or <= 13)
                 {
                     continue;
                 }
@@ -329,6 +400,16 @@ namespace TestData
                 ct.Add(contours[i]);
             }
 
+            List<Point[]> n = new();
+            for (int i = 1; i < ct.Count; i++)
+            {
+                var b = Cv2.BoundingRect(ct[i]);
+                var bs = Cv2.BoundingRect(ct[i-1]);
+                if (b.X-bs.X<10)
+                {
+                    n.Add(ct[i]);
+                }
+            }
             List<double> ar = new List<double>();
             List<(int, int, int, int, double, double)> frac = new();
             for (int i = 0; i < contours.Length; i++)
@@ -364,18 +445,20 @@ namespace TestData
 
             {
                 Bitmap? bitmap = new Bitmap(path);
-                bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
+             bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
+             //BrightnessCorrection b = new(50);
+            // bitmap = b.Apply(bitmap);
                 OtsuThreshold otsu = new OtsuThreshold();
-                Sharpen sharpen = new Sharpen();
+                Sharpen sharpen = new ();
 
 
-                // var kernel1 = new[,] { { 0, -1, 0 }, { -1, 4, -1 }, { 0, -1, 0 } };
-                var kernel1 = new[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
-                var kernel2 = new[,] { { 0, 1, 0 }, { 1, -5, 1 }, { 0, 1, 0 } };
-                //  var kernel3 = new[,] { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
-                var kernel3 = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
-                var kernel4 = new[,] { { 1, 1, 1 }, { 1, -9, 1 }, { 1, 1, 1 } };
-                List<int[,]> list = new List<int[,]>() { kernel1, kernel2, kernel3, kernel4 };
+              //  var kernel1 = new[,] { { 0, -1, 0 }, { -1, 4, -1 }, { 0, -1, 0 } };
+               var kernel2 = new[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
+                //var kernel2 = new[,] { { 0, 1, 0 }, { 1, -5, 1 }, { 0, 1, 0 } };
+             //   var kernel3 = new[,] { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
+                var kernel4 = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
+               // var kernel4 = new[,] { { 1, 1, 1 }, { 1, -9, 1 }, { 1, 1, 1 } };
+                List<int[,]> list = new List<int[,]>() {    kernel4 };
                 for (int i = 0; i < list.Count; i++)
                 {
                     sharpen.Kernel = list[i];
@@ -383,10 +466,37 @@ namespace TestData
 
                     c.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"{i}.png");
                 }
-                var k = otsu.Apply(bitmap);
-                k.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"otsu.png");
+                
+              //  var k = otsu.Apply(bitmap);
+              //  k.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"otsu.png");
 
             }
+        }
+
+        [TestMethod]
+        public void Otsu()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\Без имени-4.png";
+            Bitmap? bitmap = new Bitmap(path);
+            bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
+            GaussianSharpen s = new(20);
+            bitmap = s.Apply(bitmap);
+            OtsuThreshold otsu = new OtsuThreshold();
+            var k = otsu.Apply(bitmap);
+           
+            k.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"otsu.png");
+        }
+        [TestMethod]
+        public void Brightness()
+        {
+            const string path = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\1.png";
+            Mat m = new Mat(path);
+         //  m =  m.Resize(new Size(), 5, 5, InterpolationFlags.Cubic);
+            var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2, 2));
+            Mat dilation = new();
+            Cv2.Dilate(m, dilation, rect_kern);
+            var k = dilation.ToBitmap();
+            k.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Numbers\" + $"otsu.png");
         }
 
         [TestMethod]
@@ -433,9 +543,9 @@ namespace TestData
             //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
             //var valDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Val\val\";
             //CNN_ForCarDetecting((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary");
-            Numbers numbers = new Numbers();
-            numbers.Train((72,102,3), trainDir, testDir, null, 60, 1, 2, 0, 2,
-                @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
+         //   Numbers numbers = new Numbers();
+         //   numbers.Train((72,102,3), trainDir, testDir, null, 60, 1, 2, 0, 2,
+         //       @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
         }
     }
 }

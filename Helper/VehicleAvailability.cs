@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
@@ -17,41 +18,31 @@ namespace Helper
 {
     public class VehicleAvailability
     {
-        private BaseModel? Model { get; }
+        private BaseModel? Model { get;  }
 
-        public VehicleAvailability()
+        public VehicleAvailability(string modelPath)
         {
-            
+            Model = BaseModel.LoadModel(modelPath ?? throw new ArgumentNullException(nameof(modelPath)));
         }
-        public VehicleAvailability(string? modelPath) => Model = BaseModel.LoadModel(modelPath);
-
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Проверка совместимости платформы", Justification = "<Ожидание>")]
-        public bool RecognizeVehicle(Bitmap? image)
+        public bool RecognizeVehicle(Bitmap image)
         {
+            if (Model is null)
+                throw new NullReferenceException("Use the method 'LoadModel'");
             if (image == null) throw new ArgumentNullException(nameof(image));
             if (Image.GetPixelFormatSize(image.PixelFormat) / 8 != 3)
                 throw new ArgumentException("Only supported 24 pixel format");
-            if (Model is null)
-                throw new NullReferenceException("Model is null");
-            var crop = new Crop(new Rectangle(400, 240, 440, 100));
-            var croppedImg = crop.Apply(image) ?? throw new ArgumentNullException(nameof(crop));
-            croppedImg.Save(@"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Train\result.png", ImageFormat.Png);
-            var img = croppedImg.ToNDArray(copy: false, flat: true);
+            var img = image.ToNDArray(copy: false, flat: true);
             img /= 255.0F;
             Numpy.NDarray test = Numpy.np.array(img.ToArray<float>(), Numpy.np.float32);
-            test = test.reshape(croppedImg.Width, croppedImg.Height, Image.GetPixelFormatSize(croppedImg.PixelFormat) / 8);
+            test = test.reshape(image.Width, image.Height, Image.GetPixelFormatSize(image.PixelFormat) / 8);
             test = Numpy.np.expand_dims(test, 0);
             var result = (double)Model.Predict(test, verbose: 0);
             result = Math.Round(result, 3);
             return (int)result == 1;
         }
-
-        public bool RecongizeNumber(Bitmap? image)
-        {
-            throw new NotImplementedException();
-        }
         public void Train((int width, int height, int channels) image, string trainPath, string testPath, string valPath, int epoch, int batchSize,
-           int trainSamples, int valSamples, int testSamples, string outPath, string loss = "binary_crossentropy", string classMode = "categorical")
+           int trainSamples, int valSamples, int testSamples, string outPath, string loss = "binary_crossentropy", string classMode = "binary")
         {
             // var trainDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Train\train\";
             //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
@@ -84,48 +75,15 @@ namespace Helper
             model.Save(outPath + $@"\carEmpty_{acc:0.00}.h5");
         }
     }
-    public class Numbers
+    class NumberDetector
     {
         private BaseModel? Model { get; }
+        public NumberDetector(string? modelPath) => Model = BaseModel.LoadModel(modelPath);
 
-        public Numbers()
+        public void Train(string trainDir)
         {
-            
-        }
-        public Numbers(string? modelPath) => Model = BaseModel.LoadModel(modelPath);
-        public void Train((int width, int height, int channels) image, string trainPath, string testPath, string valPath, int epoch, int batchSize,
-           int trainSamples, int valSamples, int testSamples, string outPath, int numClasses, string loss = "categorical_crossentropy", string classMode = "categorical")
-        {
-            // var trainDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Train\train\";
-            //var testDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Test\test\";
-            //var valDir = @"D:\HEI\BLOCK 4C\Diploma\DetectingVehicle\NeuralNet\Images\Val\val\";
-            //CNN_ForCarDetecting((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary");
-           
-            var inputShape = new Keras.Shape(image.width, image.height, image.channels);
-            var model = new Sequential();
-            model.Add(new Conv2D(32, kernel_size: (3, 3).ToTuple(),
-                activation: "relu",
-                input_shape: inputShape));
-            model.Add(new Conv2D(64, (3, 3).ToTuple(), activation: "relu"));
-            model.Add(new MaxPooling2D(pool_size: (2, 2).ToTuple()));
-            model.Add(new Dropout(0.25));
-            model.Add(new Flatten());
-            model.Add(new Dense(128, activation: "relu"));
-            model.Add(new Dropout(0.5));
-            model.Add(new Dense(numClasses, activation: "softmax"));
-            model.Compile(loss: "categorical_crossentropy",
-                optimizer: new Adam(), metrics: new[] { "accuracy" });
-            var dataGenerator = new ImageDataGenerator(rescale: (float?)(1 / 255.0));
-            var trainGenerator = dataGenerator.FlowFromDirectory(trainPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
-           var valGenerator = dataGenerator.FlowFromDirectory(valPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
-            var testGenerator = dataGenerator.FlowFromDirectory(testPath, target_size: (image.width, image.height).ToTuple(), batch_size: batchSize, class_mode: classMode);
-            model.FitGenerator(trainGenerator, steps_per_epoch: trainSamples / batchSize, epochs: epoch);
-            var scores = model.EvaluateGenerator(testGenerator, testSamples / batchSize);
-            var acc = scores[1] * 100;
-            Console.WriteLine($"Точность на тестовых данных равна: {acc:0.00}%");
-            model.Save(outPath + $@"\numbs_{acc:0.00}.h5");
-        }
 
+        }
     }
     public class DataSetPreparing
     {
