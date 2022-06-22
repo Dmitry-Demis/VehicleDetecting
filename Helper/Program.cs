@@ -8,15 +8,15 @@ using Keras.Optimizers;
 using Keras.Utils;
 using Numpy;
 using NumSharp;
-using np = Numpy.np;
 using Shape = Keras.Shape;
+using np = Numpy.np;
 using System.Linq;
 using OpenCvSharp;
 using Python.Runtime;
 
 namespace Helper
 {
-
+    
     internal class Program
     {
         static void Main(string[] args)
@@ -28,9 +28,16 @@ namespace Helper
             ////vehicle.Train((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary", outPath: @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\");
             //TrainSymbols();
             // input image dimensions
-            Tr();
-            REc();
+            //    Tr();
+            //  REc();
+            float[] a = new float[22];
+            for (int j = 0; j < a.Length; j++)
+            {
+                a[j] = j;
+            }
 
+            var n = new Numpy.NDarray(a);
+            n = Util.ToCategorical(n, a.Length);
         }
 
         public static void Tr()
@@ -122,10 +129,6 @@ namespace Helper
             y_train = Util.ToCategorical(y_train, num_classes);
             var x_test = x_train;
             var y_test = y_train;
-            int a = 5;
-            // y_test = Util.ToCategorical(y_test, num_classes);
-
-            // Build CNN model
             var model = new Sequential();
             model.Add(new Conv2D(32, kernel_size: (3, 3).ToTuple(),
                                     activation: "relu",
@@ -137,10 +140,8 @@ namespace Helper
             model.Add(new Dense(128, activation: "relu"));
             model.Add(new Dropout(0.5));
             model.Add(new Dense(num_classes, activation: "softmax"));
-
             model.Compile(loss: "categorical_crossentropy",
-                optimizer: new Adadelta(), metrics: new string[] { "accuracy" });
-            // var x_test =
+                optimizer: new Adam(), metrics: new string[] { "accuracy" });
             model.Fit(x_train, y_train,
                         batch_size: batch_size,
                         epochs: epochs,
