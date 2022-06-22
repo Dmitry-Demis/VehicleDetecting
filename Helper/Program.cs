@@ -86,33 +86,40 @@ namespace Helper
                     return !(left < right) ? -1 : 1;
                 });
                 var rect = Cv2.BoundingRect(contours[0]);
-                Rect r = new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+                var c = 1;
+                Rect r = new Rect(rect.X+2, rect.Y - c, rect.Width, rect.Height + c);
                 imgCropped = imgCropped[r];
                 img.Dispose();
                 return imgCropped.ToBitmap();
             }
-            public static void FindContours(Bitmap image, string outPath)
+            public static void FindContours(Bitmap image2, Bitmap image, string outPath, int kernel)
             {
                 
                 int coeff = 5;
                 Mat img = image.ToMat();
+                Mat im = image2.ToMat();
                 img = img.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
+                im = im.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
                 // Mat image = new Mat(path, ImreadModes.Grayscale);
 
                 // image = image.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
                 //Cv2.ImShow("i", image);
                 //Cv2.WaitKey();
-                img = img.GaussianBlur(new Size(3, 3), 0);
-               img = img.Threshold(0, 255, ThresholdTypes.Otsu);
+               // img = img.GaussianBlur(new Size(3, 3), 0);
+                if (kernel < 0)
+                {
+                    img = img.Threshold(0, 255, ThresholdTypes.Otsu);
+                }
 
                 // var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
                 //  Mat dilation = new();
                 //// Cv2.Dilate(image, dilation, rect_kern);
-                //Cv2.ImShow("i", image);
-                //Cv2.WaitKey();
+                
                 Cv2.FindContours(img, out var contours, out var hierarchy, RetrievalModes.Tree,
                     ContourApproximationModes.ApproxSimple);
-                Cv2.DrawContours(img, contours, -1, Scalar.Cyan);
+                Cv2.DrawContours(im, contours, -1, Scalar.Cyan);
+                Cv2.ImShow("i", im);
+                Cv2.WaitKey();
                 //for (int i = 0; i < contours.Length; i++)
                 //{
                 //    Cv2.Rectangle(img, Cv2.BoundingRect(contours[i]), Scalar.Cyan);
@@ -224,22 +231,30 @@ namespace Helper
             // input image dimensions
             //    Tr();
             //  REc();
-            var check = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Check\Без имени-4.png";
+            var check = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Check\Без имени-1.png";
             const string modelPath = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\haarcascade_russian_plate_number.xml";
             var kernel1 = new[,] { { 0, -1, 0 }, { -1, 4, -1 }, { 0, -1, 0 } };
             var kernel2 = new[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
             var kernel3 = new[,] { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
             var kernel4 = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
-           
+          
             Bitmap image = new Bitmap(check);
+            
            image = Grayscale.CommonAlgorithms.BT709.Apply(image);
-           image = Processing.FindLicensePlate(image, modelPath);
+          // Sharpen s = new();
+         //  image = s.Apply(image);
+            image = Processing.FindLicensePlate(image, modelPath);
            image = Processing.HoughTransformation(image);
            image = Processing.Crop(image);
-           image = Processing.LaplacianFilter(image, kernel4);
-           Processing.FindContours(image, null);
            image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
 
+           Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
+           image = Processing.LaplacianFilter(image, kernel4);
+           Processing.FindContours(im, image, null, kernel4[1,1]);
+           //Directory.Delete(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result", true);
+           //Directory.CreateDirectory(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result");
+           // image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
+           
             //float[] a = new float[22];
             //for (int j = 0; j < a.Length; j++)
             //{
