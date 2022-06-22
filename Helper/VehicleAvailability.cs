@@ -22,9 +22,9 @@ namespace Helper
 {
     public class VehicleAvailability
     {
-        private BaseModel? Model { get;  }
+        private BaseModel? Model { get; set; }
 
-        public VehicleAvailability(string modelPath)
+        public void LoadModel(string modelPath)
         {
             Model = BaseModel.LoadModel(modelPath ?? throw new ArgumentNullException(nameof(modelPath)));
         }

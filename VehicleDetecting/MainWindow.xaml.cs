@@ -73,8 +73,8 @@ namespace VehicleDetecting
                     throw new FileLoadException("The model for vehicle detecting is absent");
                 pathModel = path;
             }
-            if (pathModel != null) _model = new VehicleAvailability(pathModel);
-            else
+          //  if (pathModel != null) _model = new VehicleAvailability(pathModel);
+            //else
             {
                 throw new NullReferenceException("Path model is absent");
             }

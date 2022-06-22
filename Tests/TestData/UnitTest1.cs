@@ -775,7 +775,7 @@ namespace TestData
            for(int i = 0; i< split.Length; i++)
             {
                 var files = Directory.GetFiles(
-                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Train\{split[i]}");
+                    $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Test\{split[i]}");
                 for (int j = 0; j < files.Length; j++)
                 {
                     Bitmap? bitmap = null;
@@ -783,7 +783,7 @@ namespace TestData
                     if (File.Exists(files[j])) File.Delete(files[j]);
                   //  bitmap = Grayscale.CommonAlgorithms.BT709.Apply(bitmap);
                     bitmap.Save(
-                        $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Train\{split[i]}\{split[i]}_{j}_image.png",
+                        $@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Symbols\symbols\Test\{split[i]}\{split[i]}_{j}_image.png",
                         ImageFormat.Png);
                 }
 
@@ -801,6 +801,14 @@ namespace TestData
          //   Numbers numbers = new Numbers();
          //   numbers.Train((72,102,3), trainDir, testDir, null, 60, 1, 2, 0, 2,
          //       @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\", 22);
+        }
+
+        [TestMethod]
+        public void gray()
+        {
+            var trainDir = @"D:\HEI\BLOCK 4C\Diploma\20-05-2022_15-52-59\a435bx37.png";
+            var b = Grayscale.CommonAlgorithms.BT709.Apply(new Bitmap(trainDir));
+            b.Save(@"D:\HEI\BLOCK 4C\bla.png");
         }
     }
 }
