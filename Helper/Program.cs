@@ -20,6 +20,7 @@ using Python.Runtime;
 using Point = OpenCvSharp.Point;
 using Size = OpenCvSharp.Size;
 
+
 namespace Helper
 {
     
@@ -29,24 +30,31 @@ namespace Helper
         {
             public static Bitmap FindLicensePlate(Bitmap image, string modelPath)
             {
+                if (image == null) throw new ArgumentNullException(nameof(image));
+                if (modelPath == null) throw new ArgumentNullException(nameof(modelPath));
                 Rect[]? rects = null;
-                var classifier = new CascadeClassifier(modelPath);
-                var min = -14.0;
-                var max = Math.Abs(min);
-                var rotation = new RotateBicubic(min) { KeepSize = true };
-                Mat to = new();
-                while (min < max)
-                {
-                    using (var result = rotation.Apply(image) ?? throw new ArgumentNullException())
-                        to = result.ToMat();
-                    rects = classifier.DetectMultiScale(to);
-                    if (rects.Length == 0)
-                        rotation.Angle = min += 0.2;
-                    else break;
-                }
-                if (rects != null) to = to[new Rect(rects[0].X, rects[0].Y, rects[0].Width, rects[0].Height)];
-                to = to.Resize(new Size(85, 30));
-                return to.ToBitmap();
+               // using ()
+               
+                   var classifier = new CascadeClassifier(modelPath);
+                    var min = -14.0;
+                    var max = Math.Abs(min);
+                    var rotation = new RotateBicubic(min) { KeepSize = true };
+                    Mat to = new();
+                    while (min < max)
+                    {
+                        using (var result = rotation.Apply(image) ?? throw new ArgumentNullException())
+                            to = result.ToMat();
+                        rects = classifier.DetectMultiScale(to);
+                        if (rects.Length == 0)
+                            rotation.Angle = min += 0.2;
+                        else break;
+                    }
+                    if (rects != null) to = to[new Rect(rects[0].X, rects[0].Y, rects[0].Width, rects[0].Height)];
+                    to = to.Resize(new Size(85, 30));
+                    image.Dispose();
+                    classifier.Dispose();
+                    GC.Collect();
+                    return to.ToBitmap();
             }
             public static Bitmap HoughTransformation(Bitmap image)
             {
@@ -68,6 +76,12 @@ namespace Helper
                 if (filter == null) throw new ArgumentNullException(nameof(filter));
                 if (image.PixelFormat != PixelFormat.Format8bppIndexed)
                     image = Grayscale.CommonAlgorithms.BT709.Apply(image);
+            
+                BrightnessCorrection b = new(40);
+                image = b.Apply(image);
+                ContrastCorrection c = new(30);
+                image = c.Apply(image);
+
                 var convolution = new Convolution(filter);
                 image = convolution.Apply(image);
                 return image;
@@ -75,6 +89,7 @@ namespace Helper
             public static Bitmap Crop(Bitmap image)
             {
                 Mat img = image.ToMat();
+                
                 Mat imgCropped = img.Clone();
                 img = img.Threshold(0, 255, ThresholdTypes.Otsu);
                 Cv2.FindContours(img, out var contours, out var hierarchy, RetrievalModes.External,
@@ -86,10 +101,27 @@ namespace Helper
                     return !(left < right) ? -1 : 1;
                 });
                 var rect = Cv2.BoundingRect(contours[0]);
-                var c = 1;
-                Rect r = new Rect(rect.X+2, rect.Y - c, rect.Width, rect.Height + c);
+                var c = -1;
+                var k = 0;
+                var r = new Rect(rect.X + k, rect.Y + c, rect.Width - k, rect.Height - c );
+                if (r.X + k + r.Width > imgCropped.Width)
+                {
+                    r.Width -= k;
+                }
+
+                if (r.X + k < 0)
+                {
+                    r.X = rect.X;
+                }
+                if (r.Y + c < 0)
+                {
+                    r.Y = rect.Y;
+                }
+
+               
                 imgCropped = imgCropped[r];
                 img.Dispose();
+                image.Dispose();
                 return imgCropped.ToBitmap();
             }
             public static void FindContours(Bitmap image2, Bitmap image, string outPath, int kernel)
@@ -98,48 +130,20 @@ namespace Helper
                 int coeff = 5;
                 Mat img = image.ToMat();
                 Mat im = image2.ToMat();
+               
                 img = img.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
                 im = im.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
-                // Mat image = new Mat(path, ImreadModes.Grayscale);
-
-                // image = image.Resize(new Size(), coeff, coeff, InterpolationFlags.Cubic);
-                //Cv2.ImShow("i", image);
+                img = img.GaussianBlur(new Size(), 0.5, 0.5);
+                if (kernel < 0) img = img.Threshold(0, 255, ThresholdTypes.Otsu);
+                var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(2.5, 2.5));
+                Mat dilation = new();
+                //Cv2.Dilate(img, dilation, rect_kern);
+                //Cv2.ImShow("i", dilation);
                 //Cv2.WaitKey();
-               // img = img.GaussianBlur(new Size(3, 3), 0);
-                if (kernel < 0)
-                {
-                    img = img.Threshold(0, 255, ThresholdTypes.Otsu);
-                }
-
-                // var rect_kern = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
-                //  Mat dilation = new();
-                //// Cv2.Dilate(image, dilation, rect_kern);
-                
-                Cv2.FindContours(img, out var contours, out var hierarchy, RetrievalModes.Tree,
+                Cv2.FindContours(dilation, out var contours, out var hierarchy, RetrievalModes.Tree,
                     ContourApproximationModes.ApproxSimple);
-                Cv2.DrawContours(im, contours, -1, Scalar.Cyan);
-                Cv2.ImShow("i", im);
-                Cv2.WaitKey();
-                //for (int i = 0; i < contours.Length; i++)
-                //{
-                //    Cv2.Rectangle(img, Cv2.BoundingRect(contours[i]), Scalar.Cyan);
-                //  }
-                //Cv2.ImShow("i", img);
-                //Cv2.WaitKey();
-                //var rects = Cv2.BoundingRect(contours[0]);
-                //var max = Cv2.ContourArea(contours[0]);
-                //for (int i = 1; i < contours.Length; i++)
-                //{
-                //    if (Cv2.ContourArea(contours[i]) > max)
-                //    {
-                //        rects = Cv2.BoundingRect(contours[i]);
-                //        max = Cv2.ContourArea(contours[i]);
-                //    }
-                //}
-
-                //var k = 10;
-                //img = img[rects.Y + k, rects.Y + rects.Width - k, rects.X + k, rects.X + rects.Height - k];
-                //Cv2.ImShow("i", img);
+                //Cv2.DrawContours(im, contours, -1, Scalar.Cyan);
+                //Cv2.ImShow("i", im);
                 //Cv2.WaitKey();
                 Array.Sort(contours, (points, points1) =>
                 {
@@ -147,77 +151,51 @@ namespace Helper
                     var right = Cv2.BoundingRect(points1);
                     return left.X < right.X ? -1 : 1;
                 });
-
                 List<Point[]> ct = new();
                 for (int i = 0; i < contours.Length; i++)
                 {
                     var rect = Cv2.BoundingRect(contours[i]);
                     var rect2 = (i != 0 && ct.Count != 0) ? Cv2.BoundingRect(ct[^1]) : Rect.Empty;
                     var area = Cv2.ContourArea(contours[i]);
-                    Mat res = new();
-                    var s = Cv2.ApproxPolyDP(contours[i], 5, true);
-
-
                     if (rect.Width is > 50 or <= 12)
-                    {
                         continue;
-                    }
                     if (rect.Height <= 12)
-                    {
                         continue;
-                    }
                     if (i != 0 && rect.X + rect.Width < rect2.X + rect2.Width && rect.Y + rect.Height < rect2.Y + rect2.Height)
-                    {
                         continue;
-                    }
-                    if (rect.Height * 1.0 / rect.Width is <= 0.8 or >= 3.0)
-                    {
+                    if (rect.Height * 1.0 / rect.Width is <= 0.8 or >= 2.6)
                         continue;
-                    }
-
-                    /*if (ct.Count==8)
-                    {
-                        break;
-                    }*/
-                    Cv2.Rectangle(img, Cv2.BoundingRect(contours[i]), Scalar.Red);
+                    if (area < 300)
+                        continue;
+                    Cv2.Rectangle(im, Cv2.BoundingRect(contours[i]), Scalar.Red);
                     ct.Add(contours[i]);
                 }
-
-                List<Point[]> n = new();
-                for (int i = 1; i < ct.Count; i++)
-                {
-                    var b = Cv2.BoundingRect(ct[i]);
-                    var bs = Cv2.BoundingRect(ct[i - 1]);
-                    if (b.X - bs.X < 10)
-                    {
-                        n.Add(ct[i]);
-                    }
-                }
-                List<double> ar = new List<double>();
-                List<(int, int, int, int, double, double)> frac = new();
-                for (int i = 0; i < contours.Length; i++)
-                {
-
-                    var rect = Cv2.BoundingRect(contours[i]);
-                    frac.Add((rect.X, rect.Y, rect.Width, rect.Height, rect.Height * 1.0 / rect.Width, Cv2.ContourArea(contours[i])));
-
-                }
-
+                //Cv2.ImShow("i", im);
+                //Cv2.WaitKey();
                 for (int j = 0; j < ct.Count; j++)
                 {
                     var r = Cv2.BoundingRect(ct[j]);
                     Mat tmp = img[new Rect(r.X, r.Y, r.Width, r.Height)];
                     tmp = tmp.Resize(new Size(72, 102));
-                    Cv2.BitwiseNot(tmp, tmp);
+                    if (kernel < 0)
+                        Cv2.BitwiseNot(tmp, tmp);
+                    else
+                        tmp = tmp.Threshold(0, 255, ThresholdTypes.Otsu);
                     var res = tmp.ToBitmap();
-                    //tmp = tmp.CvtColor(ColorConversionCodes.BGR2GRAY);
-                    res.Save(@$"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\{j}.png", ImageFormat.Png);
+                    var t = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\";
+                   res.Save(t+@$"{j}.png", ImageFormat.Png);
+                   res.Dispose();
+                   tmp.Dispose();
 
                 }
+                image.Dispose();
+                image2.Dispose();
+                img.Dispose();
+                im.Dispose();
                 // Cv2.DrawContours(img, contours, -1, Scalar.Red);
-                Cv2.ImShow(nameof(img), img);
-                Cv2.WaitKey();
-                Console.WriteLine();
+                //    Cv2.ImShow(nameof(img), img);
+                //    Cv2.WaitKey();
+
             }
         }
         static void Main(string[] args)
@@ -229,32 +207,85 @@ namespace Helper
             //vehicle.Train((440, 100, 3), trainDir, testDir, valDir, 20, 20, 400, 200, 200, classMode: "binary", outPath: @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\");
             //TrainSymbols();
             // input image dimensions
-            //    Tr();
+         Tr();
             //  REc();
-            var check = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Check\Без имени-1.png";
+            var check = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Check\";
+            var files = Directory.GetFiles(check);
             const string modelPath = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Models\haarcascade_russian_plate_number.xml";
             var kernel1 = new[,] { { 0, -1, 0 }, { -1, 4, -1 }, { 0, -1, 0 } };
             var kernel2 = new[,] { { 0, 1, 0 }, { 1, -4, 1 }, { 0, 1, 0 } };
             var kernel3 = new[,] { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } };
             var kernel4 = new[,] { { 1, 1, 1 }, { 1, -8, 1 }, { 1, 1, 1 } };
-          
-            Bitmap image = new Bitmap(check);
-            
-           image = Grayscale.CommonAlgorithms.BT709.Apply(image);
-          // Sharpen s = new();
-         //  image = s.Apply(image);
-            image = Processing.FindLicensePlate(image, modelPath);
-           image = Processing.HoughTransformation(image);
-           image = Processing.Crop(image);
-           image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
+            var count = 0;
+            var kernel = kernel4;
+            Console.WriteLine("При использовании фильтра:");
+            Console.WriteLine("[");
+            for (int i = 0; i < 3; i++)
+            {
+               for (int j = 0; j < 3; j++)
+                {
+                    if (j==0)
+                    {
+                        Console.Write("[");
+                    }
 
-           Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
-           image = Processing.LaplacianFilter(image, kernel4);
-           Processing.FindContours(im, image, null, kernel4[1,1]);
-           //Directory.Delete(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result", true);
-           //Directory.CreateDirectory(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result");
+                    Console.Write($"{kernel[i, j]} ");
+                    if (j == 2)
+                    {
+                        Console.WriteLine("]");
+                    }
+                    
+                }
+            }
+            Console.WriteLine("]");
+            if (!Directory.Exists(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result"))
+            {
+                Directory.CreateDirectory(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result");
+            }
+            for (int i = 0; i < files.Length; i++)
+            {
+                
+                Bitmap image = new Bitmap(files[i]);
+
+                image = Grayscale.CommonAlgorithms.BT709.Apply(image);
+                // Sharpen s = new();
+                //  image = s.Apply(image);
+                image = Processing.FindLicensePlate(image, modelPath);
+                image = Processing.HoughTransformation(image);
+                image = Processing.Crop(image);
+               // image = Processing.HoughTransformation(image);
+                // image = Processing.HoughTransformation(image);
+                image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
+
+                Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
+                Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
+                image = Processing.LaplacianFilter(image, kernel);
+                image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\kernel.png", ImageFormat.Png);
+                if (i != 0)
+                {
+                    Directory.Delete(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result", true);
+                    Directory.CreateDirectory(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result");
+                }
+                Processing.FindContours(im, image, null, kernel[1, 1]);
+                string s = Path.GetFileNameWithoutExtension(files[i]);
+                var r = REc();
+                if (s == r)
+                {
+                    count++;
+                }
+                image.Dispose();
+                im.Dispose();
+
+                Console.WriteLine($"expected = {s}, real  = {r}");
+
+            }
+
+            Console.WriteLine($"Точность распознавания равна {1.0*count/files.Length*100:0.00}%");
+          
+
+          
            // image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
-           
+
             //float[] a = new float[22];
             //for (int j = 0; j < a.Length; j++)
             //{
@@ -378,7 +409,7 @@ namespace Helper
             model.Save("resultModel.h5");
         }
 
-        public static void REc()
+        public static string REc()
         {
             var model2 = BaseModel.LoadModel("resultModel.h5");
             var predict = @"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\Result\";
@@ -413,7 +444,7 @@ namespace Helper
             string d = default;
             for (int i = 0; i < xP.Count; i++)
             {
-                var p = model2.Predict(xP[i]);
+                var p = model2.Predict(xP[i], verbose:0);
                 var s = (p.GetData<float>()).Select(r => Math.Round(r)).ToArray();
                 string[] m = s.Select(z => z.ToString(CultureInfo.InvariantCulture)).ToArray();
                 string a = String.Empty;
@@ -421,10 +452,17 @@ namespace Helper
                 {
                     a += m[j];
                 }
+
+                if (!dic.ContainsKey(a))
+                {
+                    d += "F";
+                }
+                else
                 d += (dic[a]);
             }
 
             Console.WriteLine(d);
+            return d;
         }
         public static void TrainSymbols()
         {
