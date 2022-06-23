@@ -258,7 +258,6 @@ namespace Helper
                 image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png", ImageFormat.Png);
 
                 Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
-                Bitmap im = new Bitmap(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\check.png");
                 image = Processing.LaplacianFilter(image, kernel);
                 image.Save(@"D:\HEI\BLOCK 4C\Diploma\VehicleDetecting\Helper\Images\DEMO\kernel.png", ImageFormat.Png);
                 if (i != 0)
